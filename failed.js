@@ -51,7 +51,7 @@ async function run() {
   }
 
   // find workflows for each branch
-  for (const branch of Array.from(branchesBuiltInLookback).slice(0, 10)) {
+  for (const branch of Array.from(branchesBuiltInLookback)) {
     let finishedGettingWorkflows = false
     let workflowPageToken = undefined
     const workflows = []
