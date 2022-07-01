@@ -1,7 +1,5 @@
 const {client, getS3File} = require("./util.js")
 
-const failedCharacter = " │ ✖"
-
 async function run() {
   // set up restraints for pipelines
   const lookbackDays = 30
@@ -25,6 +23,7 @@ async function run() {
   const failedJobGroups = {}
 
   // get recently used branches
+  // TODO
   branchesBuiltInLookback.add('feat/mdx-v2-update-e2e-and-benchmark')
 
   // find workflows for each branch
@@ -82,7 +81,6 @@ async function run() {
 
       // parse logs for each failed job
       for (const job of failedJobs) {
-        console.log(`${job.name}, ${job.job_number}`)
         // old API response is garbled, so manually parse logs
         const artifactsResults = await client.get(
           `project`,
@@ -102,7 +100,6 @@ async function run() {
         }
 
         const specialCharsStrip = /\x1B\[(([0-9]+)(;[0-9]+)*)?[m,K,H,f,J]/g
-        // const failedTestMatch = new RegExp(`${failedCharacter}\s+([^│]+)`, "g")
         const failedTestMatch = / │ ✖\s+([^│]+)/g
 
         // assume the last log was the one that failed
@@ -116,60 +113,39 @@ async function run() {
         }
 
         for (const failedLine of failedLines) {
+          if (!(job.name in failedJobGroups)) {
+            failedJobGroups[job.name] = {}
+          }
+
           // Sometimes fileNames are too long and flow to the next line
           // Just going to ignore that for now because it's a bit rare
           const fileName = failedLine[1].split(/\s+/)[0]
-          console.log(fileName)
+      
+          if (!(fileName in failedJobGroups[job.name])) {
+            failedJobGroups[job.name][fileName] = {
+              count: 0,
+              lastSeen: 0,
+              lastJob: 0,
+            }
+          }
+
+          failedJobGroups[job.name][fileName].count++
+          
+          const testDate = Date.parse(job.started_at)
+          if (testDate > failedJobGroups[job.name][fileName].lastSeen) {
+            failedJobGroups[job.name][fileName].lastJob = job.job_number
+            failedJobGroups[job.name][fileName].lastSeen = testDate
+          }
         }
       }
     }
   }
 
-  return
-
-  // now that we have all recent branches, get all flaky tests
-  // for those branches
-  const flakyJobGroups = {}
-
-  for (const branch of Array.from(branchesBuiltInLookback).slice(0, 1)) {
-    const testResults = await client.get(
-      'api/v2/insights/gh/gatsbyjs/gatsby/flaky-tests',
-      {
-        branch,
-      },
-    )
-  
-    // go through each flaky test
-    for (const test of testResults.flaky_tests) {
-      // initialize flakyJobGroups.jobName.testName object
-      if (!(test.job_name in flakyJobGroups)) {
-        flakyJobGroups[test.job_name] = {}
-      }
-  
-      if (!(test.test_name in flakyJobGroups[test.job_name])) {
-        flakyJobGroups[test.job_name][test.test_name] = {
-          count: 0,
-          lastSeen: 0,
-          lastJob: 0,
-        }
-      }
-
-      // now handle metrics for specific test in the job
-      flakyJobGroups[test.job_name][test.test_name].count += test.times_flaked
-
-      const testDate = Date.parse(test.workflow_created_at)
-      if (testDate > flakyJobGroups[test.job_name][test.test_name].lastSeen) {
-        flakyJobGroups[test.job_name][test.test_name].lastJob = test.job_number
-        flakyJobGroups[test.job_name][test.test_name].lastSeen = testDate
-      }
-    }
-  }
-  
   // generate markdown results
-  for (const [jobName, tests] of Object.entries(flakyJobGroups)) {
+  for (const [jobName, tests] of Object.entries(failedJobGroups)) {
     console.log(`# ${jobName}\n`)
     console.log(`*(last ${lookbackDays} days)*\n`)
-    console.log(`Test Name | Flake Count | Last Job`)
+    console.log(`Test Name | Fail Count | Last Job`)
     console.log(`--- | --- | ---`)
 
     const results = []
