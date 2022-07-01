@@ -1,5 +1,7 @@
 const {client, getS3File} = require("./util.js")
 
+const failedCharacter = " │ ✖"
+
 async function run() {
   // set up restraints for pipelines
   const lookbackDays = 30
@@ -20,6 +22,7 @@ async function run() {
 
   // variable setup
   const branchesBuiltInLookback = new Set()
+  const failedJobGroups = {}
 
   // get recently used branches
   branchesBuiltInLookback.add('feat/mdx-v2-update-e2e-and-benchmark')
@@ -98,11 +101,26 @@ async function run() {
           continue
         }
 
+        const specialCharsStrip = /\x1B\[(([0-9]+)(;[0-9]+)*)?[m,K,H,f,J]/g
+        // const failedTestMatch = new RegExp(`${failedCharacter}\s+([^│]+)`, "g")
+        const failedTestMatch = / │ ✖\s+([^│]+)/g
+
         // assume the last log was the one that failed
         const logUrl = outputMatches[outputMatches.length - 1][1]
         const log = await getS3File(logUrl)
-        const logString = JSON.parse(log).map(l => l.message).join('\n')
-        console.log(logString)
+        const logString = JSON.parse(log).map(l => l.message).join('\n').replace(specialCharsStrip, '')
+        const failedLines = logString.matchAll(failedTestMatch)
+
+        if (!failedLines) {
+          continue
+        }
+
+        for (const failedLine of failedLines) {
+          // Sometimes fileNames are too long and flow to the next line
+          // Just going to ignore that for now because it's a bit rare
+          const fileName = failedLine[1].split(/\s+/)[0]
+          console.log(fileName)
+        }
       }
     }
   }
