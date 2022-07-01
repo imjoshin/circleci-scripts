@@ -21,6 +21,7 @@ async function run() {
   // variable setup
   const branchesBuiltInLookback = new Set()
   const failedJobGroups = {}
+  const failedFetches = {}
   let finishedGettingPipelines = false
   let pipelinePageToken = undefined
 
@@ -50,8 +51,7 @@ async function run() {
   }
 
   // find workflows for each branch
-  for (const branch of Array.from(branchesBuiltInLookback)) {
-    console.log(branch)
+  for (const branch of Array.from(branchesBuiltInLookback).slice(0, 10)) {
     let finishedGettingWorkflows = false
     let workflowPageToken = undefined
     const workflows = []
@@ -133,9 +133,10 @@ async function run() {
           log = await getS3File(logUrl)
         } catch (e) {
           console.log(`Failed to get log file for ${branch}/${job.name}`)
+          failedFetches[job.name] = failedFetches[job.name] ? failedFetches[job.name] + 1 : 1
           continue
         }
-        
+
         const logString = JSON.parse(log).map(l => l.message).join('\n').replace(specialCharsStrip, '')
         const failedLines = logString.matchAll(failedTestMatch)
 
@@ -188,6 +189,8 @@ async function run() {
     console.log(results.join(`\n`))
     console.log(`\n`)
   }
+
+  console.log(JSON.stringify(failedFetches, null, 2))
 }
 
 run()
