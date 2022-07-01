@@ -1,5 +1,4 @@
 const {client, getS3File} = require("./util.js")
-const {S3} = require("aws-sdk")
 
 async function run() {
   // set up restraints for pipelines
@@ -24,7 +23,6 @@ async function run() {
 
   // get recently used branches
   branchesBuiltInLookback.add('feat/mdx-v2-update-e2e-and-benchmark')
-  const s3 = new S3({region: 'us-east-2'});
 
   // find workflows for each branch
   for (const branch of Array.from(branchesBuiltInLookback)) {
@@ -40,7 +38,8 @@ async function run() {
       }
 
       const workflowResults = await client.get(
-        'api/v2/insights/gh/gatsbyjs/gatsby/workflows/build-test',
+        `insights`,
+        `workflows/build-test`,
         {
           branch,
           'page-token': workflowPageToken,
@@ -65,7 +64,10 @@ async function run() {
       for (const workflow of workflows) {
         
         const jobResults = await client.get(
-          `api/v2/workflow/${workflow.id}/job`,
+          `workflow`,
+          `${workflow.id}/job`,
+          {},
+          {skipContext: true}
         )
 
         for (const job of jobResults.items) {
@@ -80,9 +82,13 @@ async function run() {
         console.log(`${job.name}, ${job.job_number}`)
         // old API response is garbled, so manually parse logs
         const artifactsResults = await client.get(
-          `api/v1.1/project/github/gatsbyjs/gatsby/${job.job_number}`,
+          `project`,
+          job.job_number,
           {},
-          {raw: true}
+          {
+            raw: true,
+            version: '1.1',
+          }
         )
 
         const outputRegex = /:output_url \"([^"]+)\"/g

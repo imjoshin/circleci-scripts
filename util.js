@@ -2,11 +2,25 @@ const { promisify } = require('util');
 const fetch = promisify(require("request"));
 const execPromise = promisify(require('child_process').exec)
 
+
+const context = {
+  v1: `github/gatsbyjs/gatsby`,
+  v2: `gh/gatsbyjs/gatsby`,
+}
+
 const client = {
-  get: async (url, data = {}, opt = {}) => {
+  get: async (api, path, data = {}, opt = {}) => {
+    const url = [
+      `https://circleci.com/api`,
+      `v${opt.version || 2}`,
+      api,
+      ...(opt.skipContext ? [] : [opt.version ? context.v1 : context.v2]),
+      path,
+    ].join('/')
+
     const options = {
       method: 'GET',
-      url: `https://circleci.com/${url}`,
+      url,
       headers: {
         'Circle-Token': process.env.CIRCLECI_TOKEN,
       },

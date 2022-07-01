@@ -14,7 +14,8 @@ async function run() {
   // loop until we see an old dated pipeline
   while (!finishedGettingPipelines) {
     const pipelineResults = await client.get(
-      'api/v2/project/gh/gatsbyjs/gatsby/pipeline',
+      'project', 
+      'pipeline',
       {
         'page-token': pipelinePageToken,
       }
@@ -40,7 +41,8 @@ async function run() {
 
   for (const branch of Array.from(branchesBuiltInLookback).slice(0, 1)) {
     const testResults = await client.get(
-      'api/v2/insights/gh/gatsbyjs/gatsby/flaky-tests',
+      'insights',
+      'flaky-tests',
       {
         branch,
       },
