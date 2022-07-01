@@ -1,0 +1,13 @@
+{
+  "name": "circleci",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "aws": "^0.0.3-2",
+    "aws-sdk": "^2.1166.0",
+    "circleci-api": "^4.1.4",
+    "node-fetch": "^3.2.6",
+    "request": "^2.88.2"
+  }
+}
