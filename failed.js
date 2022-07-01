@@ -2,7 +2,7 @@ const {client, getS3File} = require("./util.js")
 
 async function run() {
   // set up restraints for pipelines
-  const lookbackDays = 30
+  const lookbackDays = 1
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - lookbackDays);
 
@@ -21,13 +21,37 @@ async function run() {
   // variable setup
   const branchesBuiltInLookback = new Set()
   const failedJobGroups = {}
+  let finishedGettingPipelines = false
+  let pipelinePageToken = undefined
 
-  // get recently used branches
-  // TODO
-  branchesBuiltInLookback.add('feat/mdx-v2-update-e2e-and-benchmark')
+  // get all branches that were built recently
+  // loop until we see an old dated pipeline
+  while (!finishedGettingPipelines) {
+    const pipelineResults = await client.get(
+      'project', 
+      'pipeline',
+      {
+        'page-token': pipelinePageToken,
+      }
+    )
+
+    pipelinePageToken = pipelineResults.next_page_token
+
+    // add pipeline branches to list to fetch tests for
+    for (const pipeline of pipelineResults.items) {
+      const pipelineDate = Date.parse(pipeline.updated_at)
+      if (pipelineDate > startDate) {
+        branchesBuiltInLookback.add(pipeline.vcs.branch)
+      } else {
+        finishedGettingPipelines = true
+        break
+      }
+    }
+  }
 
   // find workflows for each branch
   for (const branch of Array.from(branchesBuiltInLookback)) {
+    console.log(branch)
     let finishedGettingWorkflows = false
     let workflowPageToken = undefined
     const workflows = []
@@ -104,7 +128,14 @@ async function run() {
 
         // assume the last log was the one that failed
         const logUrl = outputMatches[outputMatches.length - 1][1]
-        const log = await getS3File(logUrl)
+        let log
+        try {
+          log = await getS3File(logUrl)
+        } catch (e) {
+          console.log(`Failed to get log file for ${branch}/${job.name}`)
+          continue
+        }
+        
         const logString = JSON.parse(log).map(l => l.message).join('\n').replace(specialCharsStrip, '')
         const failedLines = logString.matchAll(failedTestMatch)
 

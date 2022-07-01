@@ -36,6 +36,8 @@ const client = {
 const getS3File = async (url) => {
   // we have to get s3 files this way to avoid using s3 apis with auth
   // for some reason fetching or requesting produces encoded results
+
+  // TODO try to stream this - sometimes we get a buffer overload
   const curl = await execPromise(`
   curl '${url}' \
   -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9' \
