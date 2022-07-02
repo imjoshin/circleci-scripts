@@ -2,7 +2,7 @@ const {client, getS3File} = require("./util.js")
 
 async function run() {
   // set up restraints for pipelines
-  const lookbackDays = 1
+  const lookbackDays = 30
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - lookbackDays);
 
@@ -51,7 +51,10 @@ async function run() {
   }
 
   // find workflows for each branch
+  let i = 1
   for (const branch of Array.from(branchesBuiltInLookback)) {
+    console.log(`${branch} (${i}/${Array.from(branchesBuiltInLookback).length})`)
+    i++
     let finishedGettingWorkflows = false
     let workflowPageToken = undefined
     const workflows = []
@@ -129,15 +132,16 @@ async function run() {
         // assume the last log was the one that failed
         const logUrl = outputMatches[outputMatches.length - 1][1]
         let log
+        let logString
         try {
           log = await getS3File(logUrl)
+          logString = JSON.parse(log).map(l => l.message).join('\n').replace(specialCharsStrip, '')
         } catch (e) {
           console.log(`Failed to get log file for ${branch}/${job.name}`)
           failedFetches[job.name] = failedFetches[job.name] ? failedFetches[job.name] + 1 : 1
           continue
         }
 
-        const logString = JSON.parse(log).map(l => l.message).join('\n').replace(specialCharsStrip, '')
         const failedLines = logString.matchAll(failedTestMatch)
 
         if (!failedLines) {
